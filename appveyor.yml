@@ -1,0 +1,8 @@
+environment:
+  YARN_CACHE_FOLDER: '%APPVEYOR_BUILD_FOLDER%/yarn-cache'
+
+cache:
+  - '%YARN_CACHE_FOLDER% -> yarn.lock'
+
+build_script:
+  - yarn --frozen-lockfile

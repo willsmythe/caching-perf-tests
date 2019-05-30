@@ -1,0 +1,25 @@
+jobs:
+- job: build
+  pool:
+    name: Default
+  variables:  
+    YARN_CACHE_FOLDER: $(Pipeline.Workspace)/yarn-cache-2
+  steps:
+  - script:
+      echo %SYSTEM_ACCESSTOKEN% > c:\temp\token.txt
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+    displayName: Write access token to disk
+
+  - restoreCache: $(Build.SourcesDirectory)/yarn.lock
+    path: $(YARN_CACHE_FOLDER)
+
+  - script: yarn
+    displayName: 'Install dependencies'
+
+#  - script: yarn build
+#    displayName: 'Build and test'
+
+  - saveCache: $(Build.SourcesDirectory)/yarn.lock
+    path: $(YARN_CACHE_FOLDER)
+
