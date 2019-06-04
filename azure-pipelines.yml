@@ -29,6 +29,13 @@ jobs:
       #   BuildOutputDirectory: Choco
 
   steps:
+  - task: SaveCache@0
+    inputs:
+      key: |
+        key1
+        $(System.DefaultWorkingDirectory)/NuGet.config
+      path: $(USERPROFILE)\.nuget\packages
+
   - task: DotNetCoreInstaller@0
     inputs:
       version: '3.0.100-preview5-011568'
@@ -79,6 +86,13 @@ jobs:
     env:
       AppInsightsKey: $(AppInsightsKey)
     condition: and(succeeded(), not(eq(variables['build.reason'], 'PullRequest')), not(eq(variables['AppInsightsKey'], '')))
+
+  - task: SaveCache@0
+    inputs:
+      key: |
+        key2
+        $(System.DefaultWorkingDirectory)/NuGet.config
+      path: $(USERPROFILE)\.nuget\packages
 
   - task: RestoreCache@0
     inputs:
