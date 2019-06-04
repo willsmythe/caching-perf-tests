@@ -24,6 +24,7 @@ jobs:
         key: '$(Agent.JobName)-key1'
         path: $(X_CONDA_CACHE_DIR)
       continueOnError: true
+
     - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
       displayName: Add conda to PATH for 64 bit Python
       condition: eq(variables['PYTHON_ARCH'], '64')
@@ -48,6 +49,7 @@ jobs:
       inputs:
         key: '$(Agent.JobName)'
         path: $(X_CONDA_CACHE_DIR)
+      continueOnError: true
     # - script: |
     #     build_tools\\azure\\test_script.cmd
     #   displayName: 'Test Library'
