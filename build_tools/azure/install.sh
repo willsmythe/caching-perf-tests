@@ -20,7 +20,7 @@ fi
 
 make_conda() {
     TO_INSTALL="$@"
-    conda create -n $VIRTUALENV --yes $TO_INSTALL
+    conda create -n $VIRTUALENV --yes $TO_INSTALL -vv
     source activate $VIRTUALENV
 }
 
@@ -50,6 +50,8 @@ if [[ "$DISTRIB" == "conda" ]]; then
     if [[ -n "$MATPLOTLIB_VERSION" ]]; then
         TO_INSTALL="$TO_INSTALL matplotlib=$MATPLOTLIB_VERSION"
     fi
+
+    echo "To install: $TO_INSTALL"
 
 	make_conda $TO_INSTALL
 
