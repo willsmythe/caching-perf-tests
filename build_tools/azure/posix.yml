@@ -28,6 +28,7 @@ jobs:
         export CONDA_PKGS_DIRS="$HOME/conda-cache"
         mkdir -p $CONDA_PKGS_DIRS
         echo "##vso[task.setVariable variable=CONDA_PKGS_DIRS]$CONDA_PKGS_DIRS"
+        conda config --set always_copy true
       displayName: Setup conda_pkgs_dirs
   
     - bash: conda info -a
