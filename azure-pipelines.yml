@@ -26,6 +26,7 @@ jobs:
         # later version of joblib are not packaged in conda for Python 3.5
         JOBLIB_VERSION: '0.12.3'
         COVERAGE: 'true'
+        X_CONDA_CACHE_DIR: '/usr/share/miniconda/pkgs'
       # Linux environment to test the latest available dependencies and MKL.
       # It runs tests requiring pandas and PyAMG.
       pylatest_conda:
@@ -44,6 +45,7 @@ jobs:
         CHECK_PYTEST_SOFT_DEPENDENCY: 'true'
         TEST_DOCSTRINGS: 'true'
         CHECK_WARNINGS: 'true'
+        X_CONDA_CACHE_DIR: '/usr/share/miniconda/pkgs'
 
 - template: build_tools/azure/posix.yml
   parameters:
@@ -60,6 +62,7 @@ jobs:
         PILLOW_VERSION: '*'
         JOBLIB_VERSION: '*'
         COVERAGE: 'true'
+        X_CONDA_CACHE_DIR: '/usr/local/miniconda/pkgs'
 
 - template: build_tools/azure/windows.yml
   parameters:
