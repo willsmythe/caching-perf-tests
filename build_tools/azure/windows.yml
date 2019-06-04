@@ -19,17 +19,25 @@ jobs:
       ${{ insert }}: ${{ parameters.matrix }}
 
   steps:
-    - task: SaveCache@0
-      inputs:
-        key: '$(Agent.JobName)-key1'
-        path: $(X_CONDA_CACHE_DIR)
-      continueOnError: true
+    # - task: SaveCache@0
+    #   inputs:
+    #     key: '$(Agent.JobName)-key1'
+    #     path: $(X_CONDA_CACHE_DIR)
+    #   continueOnError: true
 
     - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
       displayName: Add conda to PATH for 64 bit Python
       condition: eq(variables['PYTHON_ARCH'], '64')
+
+    - script: |
+        set CONDA_PKGS_DIRS=%USERPROFILE%\conda-cache
+        md %CONDA_PKGS_DIRS%
+        echo "##vso[task.setVariable variable=CONDA_PKGS_DIRS]%CONDA_PKGS_DIRS%"
+      displayName: Setup conda_pkgs_dirs
+
     - bash: conda info -a
       displayName: Show conda info
+
     - task: UsePythonVersion@0
       inputs:
         versionSpec: '$(PYTHON_VERSION)'
@@ -37,19 +45,21 @@ jobs:
         architecture: 'x86'
       displayName: Use 32 bit System Python
       condition: eq(variables['PYTHON_ARCH'], '32')
+    
     - task: RestoreCache@0
       inputs:
-        key: '$(Agent.JobName)'
-        path: $(X_CONDA_CACHE_DIR)
-      continueOnError: true      
+        key: '$(Agent.JobName)-v2'
+        path: $(CONDA_PKGS_DIRS)
+
     - script: |
         build_tools\\azure\\install.cmd
       displayName: 'Install'
+
     - task: SaveCache@0
       inputs:
-        key: '$(Agent.JobName)'
-        path: $(X_CONDA_CACHE_DIR)
-      continueOnError: true
+        key: '$(Agent.JobName)-v2'
+        path: $(CONDA_PKGS_DIRS)
+
     # - script: |
     #     build_tools\\azure\\test_script.cmd
     #   displayName: 'Test Library'
