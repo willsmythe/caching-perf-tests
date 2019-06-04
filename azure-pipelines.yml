@@ -36,6 +36,6 @@ jobs:
   - task: SaveCache@0
     inputs:
       key: |
-        '$(Build.SourcesDirectory)/yarn.lock'
+        $(System.DefaultWorkingDirectory)/yarn.lock
         $(Agent.OS)
       path: '$(YARN_CACHE_FOLDER)'
