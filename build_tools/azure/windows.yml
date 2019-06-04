@@ -32,7 +32,7 @@ jobs:
     - script: |
         set CONDA_PKGS_DIRS=%USERPROFILE%\conda-cache
         md %CONDA_PKGS_DIRS%
-        echo "##vso[task.setVariable variable=CONDA_PKGS_DIRS]%CONDA_PKGS_DIRS%"
+        echo ##vso[task.setVariable variable=CONDA_PKGS_DIRS]%CONDA_PKGS_DIRS%
       displayName: Setup conda_pkgs_dirs
 
     - bash: conda info -a
