@@ -18,9 +18,16 @@ jobs:
       ${{ insert }}: ${{ parameters.matrix }}
 
   steps:
+    - task: SaveCache@0
+      inputs:
+        key: '$(Agent.JobName)-key1'
+        path: $(USERPROFILE)\.conda\pkgs
+      continueOnError: true
     - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
       displayName: Add conda to PATH for 64 bit Python
       condition: eq(variables['PYTHON_ARCH'], '64')
+    - bash: conda info -a
+      displayName: Show conda info
     - task: UsePythonVersion@0
       inputs:
         versionSpec: '$(PYTHON_VERSION)'
@@ -28,21 +35,30 @@ jobs:
         architecture: 'x86'
       displayName: Use 32 bit System Python
       condition: eq(variables['PYTHON_ARCH'], '32')
+    - task: RestoreCache@0
+      inputs:
+        key: '$(Agent.JobName)'
+        path: $(USERPROFILE)\.conda\pkgs
+      continueOnError: true      
     - script: |
         build_tools\\azure\\install.cmd
       displayName: 'Install'
-    - script: |
-        build_tools\\azure\\test_script.cmd
-      displayName: 'Test Library'
-    - script: |
-        build_tools\\azure\\upload_codecov.cmd
-      condition: and(succeeded(), eq(variables['COVERAGE'], 'true'))
-      displayName: 'Upload To Codecov'
-      env:
-        CODECOV_TOKEN: $(CODECOV_TOKEN)
-    - task: PublishTestResults@2
+    - task: SaveCache@0
       inputs:
-        testResultsFiles: '$(TMP_FOLDER)\$(JUNITXML)'
-        testRunTitle: ${{ format('{0}-$(Agent.JobName)', parameters.name) }}
-      displayName: 'Publish Test Results'
-      condition: succeededOrFailed()
+        key: '$(Agent.JobName)'
+        path: $(USERPROFILE)\.conda\pkgs
+    # - script: |
+    #     build_tools\\azure\\test_script.cmd
+    #   displayName: 'Test Library'
+    # - script: |
+    #     build_tools\\azure\\upload_codecov.cmd
+    #   condition: and(succeeded(), eq(variables['COVERAGE'], 'true'))
+    #   displayName: 'Upload To Codecov'
+    #   env:
+    #     CODECOV_TOKEN: $(CODECOV_TOKEN)
+    # - task: PublishTestResults@2
+    #   inputs:
+    #     testResultsFiles: '$(TMP_FOLDER)\$(JUNITXML)'
+    #     testRunTitle: ${{ format('{0}-$(Agent.JobName)', parameters.name) }}
+    #   displayName: 'Publish Test Results'
+    #   condition: succeededOrFailed()
