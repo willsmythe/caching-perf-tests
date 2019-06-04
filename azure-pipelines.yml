@@ -13,10 +13,17 @@ jobs:
   variables:  
     YARN_CACHE_FOLDER: $(Pipeline.Workspace)/yarn-cache
   steps:
+  - bash: printenv
+
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '10.x'
+    displayName: 'Use Node.js 10'
+
   - task: RestoreCache@0
     inputs:
       key: |
-        '$(Build.SourcesDirectory)/yarn.lock'
+        $(System.DefaultWorkingDirectory)/yarn.lock
         $(Agent.OS)
       path: '$(YARN_CACHE_FOLDER)'
 
