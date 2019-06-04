@@ -1,41 +1,186 @@
+# trigger:
+# - master
+# - rel/*
+
+# pr:
+# - master
+# - rel/*
+
+variables:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
 jobs:
-- job: build
+- job: Build
+  pool:
+    vmImage: windows-2019
   strategy:
     matrix:
-      linux:
-        VM_IMAGE: ubuntu-16.04
-      windows: 
-        VM_IMAGE: vs2017-win2016
-      macOS:
-        VM_IMAGE: macOS-10.13
-  pool:
-    vmImage: $(VM_IMAGE)
-  variables:  
-    YARN_CACHE_FOLDER: $(Pipeline.Workspace)/yarn-cache
+      Config_Release:
+        BuildConfiguration: Release
+        BuildOutputDirectory: Zip
+      # Config_Store:
+      #   BuildConfiguration: Store
+      #   BuildOutputDirectory: Store
+      # Config_Nightly:
+      #   BuildConfiguration: Nightly
+      #   BuildOutputDirectory: Nightly
+      # Config_Choco:
+      #   BuildConfiguration: Choco
+      #   BuildOutputDirectory: Choco
+
   steps:
-  - bash: printenv
-
-  - task: NodeTool@0
+  - task: DotNetCoreInstaller@0
     inputs:
-      versionSpec: '10.x'
-    displayName: 'Use Node.js 10'
+      version: '3.0.100-preview5-011568'
 
-  - task: RestoreCache@0
+  - task: DotNetCoreCLI@2
     inputs:
-      key: |
-        $(System.DefaultWorkingDirectory)/yarn.lock
-        $(Agent.OS)
-      path: '$(YARN_CACHE_FOLDER)'
+      command: custom
+      custom: tool
+      arguments: install --tool-path . nbgv
+    displayName: Install NBGV tool
 
-  - script: yarn
-    displayName: 'Install dependencies'
+  - script: nbgv cloud -c -a
+    displayName: Set Version
 
-#  - script: yarn build
-#    displayName: 'Build and test'
+  - powershell: |
+      mkdir $(Build.ArtifactStagingDirectory)\$(BuildOutputDirectory)
 
-  - task: SaveCache@0
+      # Set versions
+
+      # Update appxmanifests. These must be done before build.
+      [xml]$manifest = Get-Content ".\PackageExplorer.Package\package.appxmanifest"
+      $manifest.Package.Identity.Version = "$(GitBuildVersionSimple).0"
+      $manifest.Save(".\PackageExplorer.Package\package.appxmanifest")
+
+      [xml]$manifest = Get-Content ".\PackageExplorer.Package.Nightly\package.appxmanifest"
+      $manifest.Package.Identity.Version = "$(GitBuildVersionSimple).0"
+      $manifest.Save(".\PackageExplorer.Package.Nightly\package.appxmanifest")
+
+      # Update badges
+      [xml]$badge = Get-Content ".\Build\ci_badge.svg"
+      $badge.svg.g[1].text[2].InnerText = "$(GitBuildVersionSimple).0"
+      $badge.svg.g[1].text[3].InnerText = "$(GitBuildVersionSimple).0"
+      $badge.Save("$(Build.ArtifactStagingDirectory)\$(BuildOutputDirectory)\ci_badge.svg")
+
+      [xml]$badge = Get-Content ".\Build\store_badge.svg"
+      $badge.svg.g[1].text[2].InnerText = "$(GitBuildVersionSimple).0"
+      $badge.svg.g[1].text[3].InnerText = "$(GitBuildVersionSimple).0"
+      $badge.Save("$(Build.ArtifactStagingDirectory)\$(BuildOutputDirectory)\stable_badge.svg")
+    displayName: Update manifest and badge versions
+
+  - powershell: |
+      # Update App Insights key
+      [xml]$doc = Get-Content ".\PackageExplorer\ApplicationInsights.config"
+      $doc.ApplicationInsights.InstrumentationKey = "$(AppInsightsKey)"
+      $doc.Save(".\PackageExplorer\ApplicationInsights.config")
+
+    displayName: Set AppInsights Config
+    env:
+      AppInsightsKey: $(AppInsightsKey)
+    condition: and(succeeded(), not(eq(variables['build.reason'], 'PullRequest')), not(eq(variables['AppInsightsKey'], '')))
+
+  - task: MSBuild@1
+    displayName: Build NuGet Package Explorer for $(BuildConfiguration)
     inputs:
-      key: |
-        $(System.DefaultWorkingDirectory)/yarn.lock
-        $(Agent.OS)
-      path: '$(YARN_CACHE_FOLDER)'
+      solution: 'PackageExplorer/NuGetPackageExplorer.csproj'
+      msbuildArguments: /restore
+      configuration: $(BuildConfiguration)
+      maximumCpuCount: true
+
+  - task: MSBuild@1
+    displayName: Build Nightly Package
+    inputs:
+      solution: PackageExplorer.Package.Nightly/PackageExplorer.Package.Nightly.wapproj
+      msbuildArguments: /p:AppxPackageDir="$(Build.ArtifactStagingDirectory)\$(BuildOutputDirectory)\\"
+      configuration: Nightly
+      maximumCpuCount: true
+    condition: and(succeeded(), eq(variables['BuildConfiguration'], 'Nightly'))
+
+  - powershell: |
+      # Fix AppInstaller update settings
+      # This can be removed once 16.1 is on the agent with package templates
+      [xml]$doc = Get-Content "$(Build.ArtifactStagingDirectory)\$(BuildOutputDirectory)\PackageExplorer.Package.Nightly.appinstaller"
+      $doc.AppInstaller.UpdateSettings.OnLaunch.HoursBetweenUpdateChecks = "4"
+      $toInsert = $doc.CreateElement("AutomaticBackgroundTask", "http://schemas.microsoft.com/appx/appinstaller/2017/2")
+      $doc.AppInstaller.UpdateSettings.AppendChild($toInsert)
+      $doc.Save("$(Build.ArtifactStagingDirectory)\$(BuildOutputDirectory)\PackageExplorer.Package.Nightly.appinstaller")
+    displayName: Update AppInstaller settings
+    condition: and(succeeded(), eq(variables['BuildConfiguration'], 'Nightly'))
+
+  - task: MSBuild@1
+    displayName: Build Store Package
+    inputs:
+      solution: PackageExplorer.Package/PackageExplorer.Package.wapproj
+      msbuildArguments: /p:AppxPackageDir="$(Build.ArtifactStagingDirectory)\$(BuildOutputDirectory)\\" /p:UapAppxPackageBuildMode=CI
+      configuration: Store
+      maximumCpuCount: true
+    condition: and(succeeded(), eq(variables['BuildConfiguration'], 'Store'))
+
+  - task: MSBuild@1
+    displayName: Publish $(BuildConfiguration)
+    inputs:
+      solution: 'PackageExplorer/NuGetPackageExplorer.csproj'
+      msbuildArguments: /t:publish /p:RuntimeIdentifier=win-x86 /p:SelfContained=true
+      configuration: $(BuildConfiguration)
+      maximumCpuCount: true
+    condition: and(succeeded(), or(eq(variables['BuildConfiguration'], 'Release'), eq(variables['BuildConfiguration'], 'Choco')))
+
+  - task: MSBuild@1
+    displayName: Pack Types Package
+    inputs:
+      solution: Types/Types.csproj
+      msbuildArguments: /t:pack /p:PackageOutputPath=$(Build.ArtifactStagingDirectory)\$(BuildOutputDirectory)\NuGet
+      configuration: $(BuildConfiguration)
+      maximumCpuCount: true
+    condition: and(succeeded(), eq(variables['BuildConfiguration'], 'Release'))
+
+  - powershell: |
+      # Chocolatey
+      & choco.exe pack .\PackageExplorer\NuGetPackageExplorer.nuspec --version $(NBGV_ChocolateyPackageVersion) --OutputDirectory $(Build.ArtifactStagingDirectory)\$(BuildOutputDirectory)
+    displayName: Create Choco package
+    condition: and(succeeded(), eq(variables['BuildConfiguration'], 'Choco'))
+
+  - task: ArchiveFiles@1
+    displayName: Zip PackageExplorer files
+    inputs:
+      archiveType: zip
+      rootFolder: PackageExplorer/bin/$(BuildConfiguration)/netcoreapp3.0/win-x86/publish
+      archiveFile: $(Build.ArtifactStagingDirectory)\$(BuildOutputDirectory)\PackageExplorer.$(Build.BuildNumber).zip
+      includeRootFolder: false
+    condition: and(succeeded(), eq(variables['BuildConfiguration'], 'Release'))
+
+  - task: DotNetCoreCLI@2
+    inputs:
+      command: custom
+      custom: tool
+      arguments: install --tool-path $(System.DefaultWorkingDirectory)\Build SignClient
+    displayName: Install SignTool tool
+    condition: and(succeeded(), not(eq(variables['build.reason'], 'PullRequest')), not(eq(variables['SignClientSecret'], '')), not(eq(variables['SignClientUser'], '')))
+
+  - task: PowerShell@2
+    displayName: Authenticode Sign $(BuildConfiguration) Package artifacts
+    inputs:
+      filePath: Build/Sign-Package.ps1
+    env:
+      SignClientUser: $(SignClientUser)
+      SignClientSecret: $(SignClientSecret)
+      ArtifactDirectory: $(Build.ArtifactStagingDirectory)\$(BuildOutputDirectory)
+    condition: and(succeeded(), not(eq(variables['build.reason'], 'PullRequest')), not(eq(variables['SignClientSecret'], '')), not(eq(variables['SignClientUser'], '')))
+
+  - task: PowerShell@2
+    displayName: Authenticode Sign $(BuildOutputDirectory) Zip artifacts
+    inputs:
+      filePath: Build/Sign-Zip.ps1
+    env:
+      SignClientUser: $(SignClientUser)
+      SignClientSecret: $(SignClientSecret)
+      ArtifactDirectory: $(Build.ArtifactStagingDirectory)\$(BuildOutputDirectory)
+    condition: and(succeeded(), not(eq(variables['build.reason'], 'PullRequest')), not(eq(variables['SignClientSecret'], '')), not(eq(variables['SignClientUser'], '')))
+
+  - task: PublishBuildArtifacts@1
+    displayName: Publish $(BuildOutputDirectory) Artifact
+    inputs:
+      pathToPublish: $(Build.ArtifactStagingDirectory)\$(BuildOutputDirectory)
+      artifactType: container
+      artifactName: $(BuildOutputDirectory)
