@@ -14,6 +14,8 @@ jobs:
     OMP_NUM_THREADS: '4'
     OPENBLAS_NUM_THREADS: '4'
     SKLEARN_SKIP_NETWORK_TESTS: '1'
+    X_CONDA_CACHE_DIR: '/usr/local/miniconda/pkgs'
+
   strategy:
     matrix:
       ${{ insert }}: ${{ parameters.matrix }}
@@ -26,10 +28,15 @@ jobs:
     - bash: conda info -a
       displayName: Show conda info
 
+    - task: SaveCache@0
+      inputs:
+        key: '$(Agent.JobName)-key1'
+        path: $(X_CONDA_CACHE_DIR)      
+
     - task: RestoreCache@0
       inputs:
         key: '$(Agent.JobName)'
-        path: $(USERPROFILE)\.conda\pkgs
+        path: $(X_CONDA_CACHE_DIR)
 
     - script: |
         build_tools/azure/install.sh
@@ -38,7 +45,7 @@ jobs:
     - task: SaveCache@0
       inputs:
         key: '$(Agent.JobName)'
-        path: $(USERPROFILE)\.conda\pkgs
+        path: $(X_CONDA_CACHE_DIR)
 
     # - script: |
     #     build_tools/azure/test_script.sh

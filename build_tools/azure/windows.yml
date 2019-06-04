@@ -13,6 +13,7 @@ jobs:
     JUNITXML: 'test-data.xml'
     SKLEARN_SKIP_NETWORK_TESTS: '1'
     TMP_FOLDER: '$(Agent.WorkFolder)\tmp_folder'
+    X_CONDA_CACHE_DIR: 'C:\Miniconda\pkgs'
   strategy:
     matrix:
       ${{ insert }}: ${{ parameters.matrix }}
@@ -21,7 +22,7 @@ jobs:
     - task: SaveCache@0
       inputs:
         key: '$(Agent.JobName)-key1'
-        path: $(USERPROFILE)\.conda\pkgs
+        path: $(X_CONDA_CACHE_DIR)
       continueOnError: true
     - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
       displayName: Add conda to PATH for 64 bit Python
@@ -38,7 +39,7 @@ jobs:
     - task: RestoreCache@0
       inputs:
         key: '$(Agent.JobName)'
-        path: $(USERPROFILE)\.conda\pkgs
+        path: $(X_CONDA_CACHE_DIR)
       continueOnError: true      
     - script: |
         build_tools\\azure\\install.cmd
@@ -46,7 +47,7 @@ jobs:
     - task: SaveCache@0
       inputs:
         key: '$(Agent.JobName)'
-        path: $(USERPROFILE)\.conda\pkgs
+        path: $(X_CONDA_CACHE_DIR)
     # - script: |
     #     build_tools\\azure\\test_script.cmd
     #   displayName: 'Test Library'
