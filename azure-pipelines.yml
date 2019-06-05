@@ -28,9 +28,6 @@ jobs:
   - script: yarn --frozen-lockfile
     displayName: 'Install dependencies'
 
-#  - script: yarn build
-#    displayName: 'yarn build'
-
   - task: SaveCache@0
     inputs:
       key: |
