@@ -1,21 +1,68 @@
-jobs:
-- job: yarn
-  variables:  
-    YARN_CACHE_FOLDER: $(Pipeline.Workspace)/yarn-cache
-  steps:
-  #- task: RestoreCache@0
-  ##  inputs:
-   #   key: $(Build.SourcesDirectory)/yarn.lock
-    #  path: $(YARN_CACHE_FOLDER)
+# Python package
+# Create and test a Python package on multiple Python versions.
+# Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/python
 
-  - script: yarn
+jobs:
+
+- job: 'Test'
+  pool:
+    vmImage: 'Ubuntu 16.04'
+  strategy:
+    matrix:
+      Python36:
+        python.version: '3.6'
+      Python37:
+        python.version: '3.7'
+    maxParallel: 4
+  variables:
+    PIP_CACHE_FOLDER: '$(HOME)/.cache/pip'
+    PIP_CACHE_KEY: |
+      pip
+      $(python.version)
+
+  steps:
+  - checkout: self
+    fetchDepth: 1
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '$(python.version)'
+      architecture: 'x64'
+
+  - task: RestoreCache@0
+    inputs:
+      key: $(PIP_CACHE_KEY)
+      path: $(PIP_CACHE_FOLDER)
+    #continueOnError: false
+
+  - script: |
+
+      python -m pip install --upgrade pip
+      pip install -r requirements/testing/travis_all.txt -r requirements/testing/travis36.txt
+
     displayName: 'Install dependencies'
 
-#  - script: yarn build
-#    displayName: 'Build and test'
+  - script: |
 
-#  - task: SaveCache@0
- #   inputs:
-  #    key: $(Build.SourcesDirectory)/yarn.lock
-   #   path: $(YARN_CACHE_FOLDER)
+      export MPLLOCALFREETYPE=1
+      pip install -ve .
 
+    displayName: "Install self"
+
+  - task: SaveCache@0
+    inputs:
+      key: $(PIP_CACHE_KEY)
+      path: $(PIP_CACHE_FOLDER)
+    #continueOnError: true   
+
+  # - script: |
+  #     env
+  #     pytest --junitxml=junit/test-results.xml -raR --maxfail=50 --timeout=300 --durations=25 --cov-report= --cov=lib -n 2 --log-level=DEBUG
+  #   displayName: 'pytest'
+
+  # - task: PublishTestResults@2
+  #   inputs:
+  #     testResultsFiles: '**/test-results.xml'
+  #     testRunTitle: 'Python $(python.version)'
+  #   condition: succeededOrFailed()
