@@ -16,9 +16,11 @@ jobs:
         python.version: '3.7'
     maxParallel: 4
   variables:
-    PIP_CACHE_FOLDER: '$(HOME)/.cache/pip'
-    PIP_CACHE_KEY: |
-      pip
+    CACHE_DIR: '$(Build.SourcesDirectory)/.cache'
+    PIP_CACHE_DIR: '$(CACHE_DIR)/pip'         # override default pip cache directory
+    PIPENV_CACHE_DIR: '$(CACHE_DIR)/pipenv'   # override default pipenv cache directory
+    CACHE_KEY: |
+      pip_pipenv
       $(python.version)
 
   steps:
@@ -32,8 +34,8 @@ jobs:
 
   - task: RestoreCache@0
     inputs:
-      key: $(PIP_CACHE_KEY)
-      path: $(PIP_CACHE_FOLDER)
+      key: $(CACHE_KEY)
+      path: $(CACHE_DIR)
     #continueOnError: false
 
   - script: |
@@ -52,8 +54,8 @@ jobs:
 
   - task: SaveCache@0
     inputs:
-      key: $(PIP_CACHE_KEY)
-      path: $(PIP_CACHE_FOLDER)
+      key: $(CACHE_KEY)
+      path: $(CACHE_DIR)
     #continueOnError: true   
 
   # - script: |
