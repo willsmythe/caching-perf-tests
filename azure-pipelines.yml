@@ -8,7 +8,7 @@ jobs:
    #   key: $(Build.SourcesDirectory)/yarn.lock
     #  path: $(YARN_CACHE_FOLDER)
 
-  - script: yarn
+  - script: yarnasdf
     displayName: 'Install dependencies'
 
 #  - script: yarn build
